@@ -9,6 +9,7 @@ import CreateTransactionService from '../services/CreateTransactionService'
 import DeleteTransactionService from '../services/DeleteTransactionService'
 import ImportTransactionsService from '../services/ImportTransactionsService'
 import { write } from 'fs/promises'
+import Transaction from '../models/Transaction'
 
 const upload = multer({ storage: multer.memoryStorage() })
 
@@ -55,12 +56,18 @@ transactionsRouter.delete('/:id', async (request, response) => {
   return response.status(204).send()
 })
 
-transactionsRouter.post('/import', upload.single('file'), async (request, response) => {
-  const rawCsvString = request.file.buffer.toString()
-
+transactionsRouter.post('/import', upload.array('file'), async (request, response) => {
+  const transactionsRepository = getCustomRepository(TransactionsRepository)
   const importTransactions = new ImportTransactionsService()
 
-  const transactions = await importTransactions.execute(rawCsvString)
+  for (let file of request.files) {
+    const rawCsvString = file.buffer.toString()
+    await importTransactions.execute(rawCsvString)
+  }
+
+  const transactions = await transactionsRepository.find({
+    relations: ['category']
+  })
 
   return response.json(transactions)
 })
